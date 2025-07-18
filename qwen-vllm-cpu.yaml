@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-vllm-cpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen-vllm-cpu
+  template:
+    metadata:
+      labels:
+        app: qwen-vllm-cpu
+    spec:
+      # Add tolerations for the Graviton taint
+      tolerations:
+      - key: "aws.amazon.com/graviton"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      nodeSelector:
+        node.kubernetes.io/instance-type: m8g.4xlarge
+        karpenter.sh/capacity-type: on-demand
+      containers:
+      - name: vllm
+        image: public.ecr.aws/j4m3t0a6/vllm-arm:0.9.2
+        args:
+          - "--model=Qwen/Qwen3-4B"
+          - "--host=0.0.0.0"
+          - "--port=8080"
+          - "--max-num-batched-tokens=8192"
+          - "--max-model-len=8192"
+          - --trust-remote-code
+          - --dtype=float16 
+          - --enable-auto-tool-choice
+          - --tool-call-parser=hermes
+        resources:
+          requests:
+            cpu: 14
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VLLM_CPU_KVCACHE_SPACE #set the Environment variable VLLM_CPU_KVCACHE_SPACE (GB) for CPU backend, using 4 by default.
+          value: "40"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen-vllm-cpu
+spec:
+  selector:
+    app: qwen-vllm-cpu
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP

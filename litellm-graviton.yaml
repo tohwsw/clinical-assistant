@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-graviton
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm-graviton
+  template:
+    metadata:
+      labels:
+        app: litellm-graviton
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: litellm
+        image: ghcr.io/berriai/litellm:main-latest
+        args:
+          - "--config"
+          - "/app/config.yaml"
+          - "--port"
+          - "4000"
+          - "--num_workers"
+          - "1"
+        ports:
+        - containerPort: 4000
+        env:
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: master-key
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+data:
+  config.yaml: |
+    model_list:
+      # vLLM Models     
+      - model_name: qwen3-4b-cpu
+        litellm_params:
+          model: openai/Qwen/Qwen3-4B
+          api_base: http://qwen-vllm-cpu:8080/v1
+          api_key: "dummy-key"  # vLLM doesn't require a real API key
+          supports_function_calling: true  # Disable function calling for vLLM
+    
+    general_settings:
+      master_key: os.environ/LITELLM_MASTER_KEY
+      database_url: null
+      store_model_in_db: false
+      
+    # Optional: Add logging and monitoring
+    litellm_settings:
+      success_callback: ["langfuse"]
+      failure_callback: ["langfuse"]
+      set_verbose: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: litellm-secret
+type: Opaque
+data:
+  master-key: eW91ci1zZWNyZXQta2V5  # base64 encoded "your-secret-key"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-graviton
+spec:
+  selector:
+    app: litellm-graviton
+  ports:
+  - port: 4000
+    targetPort: 4000
+  type: ClusterIP
