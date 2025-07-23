@@ -32,6 +32,18 @@ spec:
             secretKeyRef:
               name: litellm-secret
               key: master-key
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: secret-access-key
+        - name: AWS_DEFAULT_REGION
+          value: MY_REGION
         resources:
           requests:
             cpu: "500m"
@@ -56,12 +68,20 @@ data:
   config.yaml: |
     model_list:
       # vLLM Models     
-      - model_name: qwen3-4b-cpu
+      - model_name: llama3-8b
         litellm_params:
-          model: openai/Qwen/Qwen3-4B
-          api_base: http://qwen-vllm-cpu:8080/v1
+          model: openai/meta-llama/Llama-3.1-8B-Instruct
+          api_base: http://llama-vllm-neuron:8080/v1
           api_key: "dummy-key"  # vLLM doesn't require a real API key
-          supports_function_calling: true  # Disable function calling for vLLM
+          supports_function_calling: true 
+
+      # Amazon Bedrock Models
+      - model_name: claude-4-sonnet
+        litellm_params:
+          model: bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0
+          aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+          aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+          aws_region_name: os.environ/AWS_REGION_NAME
     
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
@@ -81,6 +101,18 @@ metadata:
 type: Opaque
 data:
   master-key: eW91ci1zZWNyZXQta2V5  # base64 encoded "your-secret-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-credentials
+type: Opaque
+data:
+  # Base64-encoded AWS credentials
+  access-key-id: MY_ACCESS_KEY  # PLACEHOLDER - UPDATE THIS!
+  # IMPORTANT: Replace this with your actual base64-encoded secret access key
+  # echo -n "your-actual-secret-access-key" | base64  
+  secret-access-key: MY_SECRET_KEY # PLACEHOLDER - UPDATE THIS!
 ---
 apiVersion: v1
 kind: Service
