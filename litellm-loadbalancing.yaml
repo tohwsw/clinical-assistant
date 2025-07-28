@@ -68,7 +68,7 @@ data:
   config.yaml: |
     model_list:
       # vLLM Models     
-      - model_name: llama3-8b
+      - model_name: my-model
         litellm_params:
           model: openai/meta-llama/Llama-3.1-8B-Instruct
           api_base: http://llama-vllm-neuron:8080/v1
@@ -76,12 +76,15 @@ data:
           supports_function_calling: true 
 
       # Amazon Bedrock Models
-      - model_name: claude-4-sonnet
+      - model_name: my-model
         litellm_params:
           model: bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0
           aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
           aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
           aws_region_name: os.environ/AWS_REGION_NAME
+    
+    router_settings:
+      routing_strategy: simple-shuffle # Literal["simple-shuffle", "least-busy", "usage-based-routing","latency-based-routing"], default="simple-shuffle"
     
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
