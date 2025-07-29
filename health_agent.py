@@ -1,8 +1,32 @@
 import logging
 from strands import Agent
 from strands.models.openai import OpenAIModel
+from strands.telemetry import StrandsTelemetry
 from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
+
+import os
+import base64
+
+os.environ["LANGFUSE_PUBLIC_KEY"] = os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-...")
+os.environ["LANGFUSE_SECRET_KEY"] = os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-...")
+os.environ["LANGFUSE_HOST"] = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")  # or your endpoint
+os.environ["LANGFUSE_TRACING_ENVIRONMENT"] = "health-agent-1"
+ 
+ # Build Basic Auth header.
+LANGFUSE_AUTH = base64.b64encode(
+    f"{os.environ.get('LANGFUSE_PUBLIC_KEY')}:{os.environ.get('LANGFUSE_SECRET_KEY')}".encode()
+).decode()
+ 
+# Configure OpenTelemetry endpoint & headers
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = os.environ.get("LANGFUSE_HOST") + "/api/public/otel"
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
+
+# Configure the telemetry
+# (Creates new tracer provider and sets it as global)
+strands_telemetry = StrandsTelemetry().setup_otlp_exporter()
+ 
+
 
 # Configure logging for debug information
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -14,13 +38,14 @@ logging.basicConfig(
 # Configure the OpenAI model to connect to local Qwen3-8B server
 openai_model = OpenAIModel(
     client_args={
-        "base_url": "http://localhost:4000/v1",  # Local server endpoint
-        "api_key": "your-secret-key"  # Required but can be dummy for local servers
+        "base_url": "https://your.llm.endpoint/",  # Local server endpoint
+        "api_key": "sk-xxxxxxx"  # Required but can be dummy for local servers
     },
-    model_id="claude-4-sonnet",  # Model identifier
-    temperature=0.3,  # Lower temperature for more consistent medical advice
-    max_tokens=2048
+    model_id="bedrock/claude-3.7-sonnet" ,#vllm/qwen3-30b-fp8",  # Model identifier
+    # temperature=0.7,  # Lower temperature for more consistent medical advice
+    max_tokens=100 #2048
 )
+
 
 def create_health_agent():
     """Create the health agent with MCP healthcare data server connection via streamable HTTP"""
@@ -34,6 +59,16 @@ def create_health_agent():
         
         # Create the health agent with MCP tools
         health_agent = Agent(
+
+             trace_attributes={
+                "session.id": "abc-1234", # Example session ID
+                "user.id": "user-email-example@domain.com", # Example user ID
+                "langfuse.tags": [
+                    "Agent-SDK-Example",
+                    "Strands-Project-Demo",
+                    "Observability-Tutorial"
+            ]
+            },
             model=openai_model,
             tools=tools,  # Use the MCP server tools
             system_prompt="""You are a Clinical Decision Support AI Assistant with access to patient data through an MCP healthcare data server. You help healthcare professionals with diagnostic reasoning and clinical decision-making.
