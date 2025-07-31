@@ -70,23 +70,49 @@ data:
       # vLLM Models     
       - model_name: llama3-8b
         litellm_params:
-          model: openai/meta-llama/Llama-3.1-8B-Instruct
-          api_base: http://llama-vllm-neuron:8080/v1
+          model: openai/NousResearch/Meta-Llama-3.1-8B-Instruct
+          api_base: http://llama-vllm-neuron:8000/v1
           api_key: "dummy-key"  # vLLM doesn't require a real API key
           supports_function_calling: true 
 
       # Amazon Bedrock Models
       - model_name: claude-4-sonnet
         litellm_params:
-          model: bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0
+          model: bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
           aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
           aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
           aws_region_name: os.environ/AWS_REGION_NAME
+      
+      # vLLM Models     
+      - model_name: my-model
+        litellm_params:
+          model: openai/NousResearch/Meta-Llama-3.1-8B-Instruct
+          api_base: http://llama-vllm-neuron:8000/v1
+          api_key: "dummy-key"  # vLLM doesn't require a real API key
+          supports_function_calling: true 
+
+      # Amazon Bedrock Models
+      - model_name: my-model
+        litellm_params:
+          model: bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
+          aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+          aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+          aws_region_name: os.environ/AWS_REGION_NAME
+      
+    router_settings:
+      routing_strategy: simple-shuffle # Literal["simple-shuffle", "least-busy", "usage-based-routing","latency-based-routing"], default="simple-shuffle"
     
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
-      database_url: null
-      store_model_in_db: false
+      database_url: "postgresql://litellm:postgrespassword@postgresql:5432/litellm"
+      store_model_in_db: true
+      
+    # Redis configuration for caching
+    cache:
+      type: "redis"
+      host: "redis"
+      port: 6379
+      password: "redispassword"
       
     # Optional: Add logging and monitoring
     litellm_settings:
@@ -125,3 +151,170 @@ spec:
   - port: 4000
     targetPort: 4000
   type: ClusterIP
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+type: Opaque
+data:
+  password: cmVkaXNwYXNzd29yZA==  # base64 encoded "redispassword"
+---
+# Redis PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: auto-ebs-sc
+  resources:
+    requests:
+      storage: 5Gi
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "litellm"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-secret
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-secret
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgresql-data
+        persistentVolumeClaim:
+          claimName: postgresql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+spec:
+  selector:
+    app: postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgresql-secret
+type: Opaque
+data:
+  username: bGl0ZWxsbQ==  # base64 encoded "litellm"
+  password: cG9zdGdyZXNwYXNzd29yZA==  # base64 encoded "postgrespassword"
+---
+# PostgreSQL PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: auto-ebs-sc
+  resources:
+    requests:
+      storage: 10Gi
+
