@@ -1,6 +1,7 @@
 # Core Strands SDK dependencies for AI agent orchestration
 strands-agents[otel]>=0.1.0
 strands-agents-tools
+strands-agents[openai]
 
 # Langfuse tracing dependencies for clinical assistant monitoring
 langfuse>=2.0.0
