@@ -56,7 +56,7 @@ openai_model = OpenAIModel(
         "base_url": "http://localhost:4000/v1",  # Local server endpoint
         "api_key": "your-secret-key"  # Required but can be dummy for local servers
     },
-    model_id="llama3-8b",  # Model identifier
+    model_id="claude-4-sonnet",  # Model identifier
     temperature=0.3,  # Lower temperature for more consistent medical advice
     max_tokens=2048
 )
