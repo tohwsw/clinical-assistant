@@ -1,32 +1,11 @@
-apiVersion: eks.amazonaws.com/v1
-kind: IngressClassParams
-metadata:
-  name: langfuse-alb
-spec:
-  scheme: internet-facing
-  group:
-    name: langfuse-web-group
----
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: langfuse-alb
-  annotations:
-    ingressclass.kubernetes.io/is-default-class: "true"
-spec:
-  controller: eks.amazonaws.com/alb
-  parameters:
-    apiGroup: eks.amazonaws.com
-    kind: IngressClassParams
-    name: langfuse-alb
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: langfuse-web-ingress-alb
+  name: langfuse-web-ingress
   namespace: default
 spec:
-  ingressClassName: langfuse-alb
+  ingressClassName: alb
   rules:
   - http:
       paths:
