@@ -50,7 +50,6 @@ def setup_langfuse_tracing():
         print("   Continuing without tracing...")
         return None
 
-# Configure the OpenAI model to connect to local Qwen3-8B server
 openai_model = OpenAIModel(
     client_args={
         "base_url": "http://localhost:4000/v1",  # Local server endpoint
