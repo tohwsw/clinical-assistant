@@ -14,6 +14,8 @@ spec:
       labels:
         app: healthcare-mcp-server
     spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
       containers:
       - name: healthcare-mcp-server
         image: public.ecr.aws/j4m3t0a6/agents/healthcare-mcp-server:latest
