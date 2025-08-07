@@ -32,6 +32,8 @@ spec:
           value: "http://litellm-graviton:4000/v1"
         - name: MCP_HOST
           value: "http://healthcare-mcp-server:8000/mcp"
+        - name: MODEL_ID
+          value: "claude-4-sonnet"
         - name: CLINICAL_SESSION_ID
           value: "clinical-session-k8s"
         - name: HEALTHCARE_PROVIDER_ID
