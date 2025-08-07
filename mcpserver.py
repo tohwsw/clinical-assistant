@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 # Initialize MCP server for healthcare data
-mcp = FastMCP("Healthcare Data Server")
+mcp = FastMCP("Healthcare Data Server", host="0.0.0.0")
 
 # Sample healthcare data (in production, this would connect to a real database/API)
 SAMPLE_PATIENTS = {
